@@ -1,9 +1,7 @@
 # EventHub — Python Flask & SQLite Backend
 
 Phase 2 REST API backend for the **EventHub** College Event Registration System. Built with Python, Flask, and SQLite with automated email dispatch and PyTest test suite.
-
 ---
-
 ## 🚀 Features
 
 - **REST API**: Complete endpoints for event management, student registrations, and administrative login.
@@ -71,3 +69,5 @@ The REST API will be accessible at: `http://localhost:5000/api`
 - **Admin ID**: `ADMIN001`
 - **Password**: `EventHub@2026`
 *(Configurable via `.env`)*
+
+CI/CD pipeline configured with GitHub webhook.
