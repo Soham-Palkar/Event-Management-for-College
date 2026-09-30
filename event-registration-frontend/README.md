@@ -84,3 +84,17 @@ All backend requests are centralized in [`src/services/api.ts`](file:///c:/Users
 - `POST   /api/registrations` — Register a student (validates capacity & duplicate emails)
 - `GET    /api/registrations` — List all registrations (optionally filtered by `?eventId=`)
 - `POST   /api/admin/login` — Authenticate admin credentials
+
+---
+
+## 📚 Technical Specifications & Contracts
+
+For complete architectural specifications, schemas, and integration guides, see the [`docs/`](../docs) folder:
+
+- 🔄 [Backend Integration Guide (`docs/BACKEND_INTEGRATION.md`)](../docs/BACKEND_INTEGRATION.md)
+- 📋 [REST API Contract (`docs/API_CONTRACT.md`)](../docs/API_CONTRACT.md)
+- 🗄️ [SQLite Database Schema (`docs/DATABASE_SCHEMA.md`)](../docs/DATABASE_SCHEMA.md)
+- 🤝 [Backend Developer Handover (`docs/BACKEND_HANDOVER.md`)](../docs/BACKEND_HANDOVER.md)
+- 💻 [Local Development Setup (`docs/DEVELOPMENT_SETUP.md`)](../docs/DEVELOPMENT_SETUP.md)
+- 📜 [Project Changelog (`docs/CHANGELOG.md`)](../docs/CHANGELOG.md)
+

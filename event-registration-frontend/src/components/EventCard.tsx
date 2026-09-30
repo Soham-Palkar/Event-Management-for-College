@@ -2,6 +2,7 @@ import { CalendarDays, Clock, MapPin, Users } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import type { Event } from '../types'
 import { availableSeats, formatDisplayDate } from '../utils/format'
+import { DEFAULT_EVENT_IMAGE, getImageUrl } from '../utils/image'
 import Button from './Button'
 
 type EventCardProps = {
@@ -17,17 +18,17 @@ export default function EventCard({ event }: EventCardProps) {
     <article className="group flex h-full flex-col overflow-hidden rounded-xl border border-line bg-white transition-shadow hover:shadow-md">
       {/* Image */}
       <div className="relative h-48 overflow-hidden bg-slate-100">
-        {event.image ? (
-          <img
-            src={event.image}
-            alt={event.name}
-            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-          />
-        ) : (
-          <div className="flex h-full items-center justify-center bg-brand-soft text-brand">
-            <CalendarDays className="h-10 w-10" aria-hidden="true" />
-          </div>
-        )}
+        <img
+          src={getImageUrl(event.image)}
+          alt={event.name}
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+          onError={(e) => {
+            // Prevent infinite loop if fallback image fails
+            if (e.currentTarget.src !== DEFAULT_EVENT_IMAGE) {
+              e.currentTarget.src = DEFAULT_EVENT_IMAGE
+            }
+          }}
+        />
         <span className="absolute top-3 left-3 rounded-md bg-white/90 px-2.5 py-1 text-xs font-semibold text-brand backdrop-blur-sm">
           {event.category}
         </span>

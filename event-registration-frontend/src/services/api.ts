@@ -12,12 +12,13 @@ import { to12HourTime } from '../utils/format'
 
 /**
  * Read from VITE_API_BASE_URL when backend is running;
- * fall back to a default during mock-only development.
+ * default to http://localhost:5000/api
  */
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:5000/api'
 
-const USE_MOCK = true
+// Set VITE_USE_MOCK=true in .env to force mock mode
+const USE_MOCK = import.meta.env.VITE_USE_MOCK === 'true'
 const DELAY_MS = 450
 
 /* ------------------------------------------------------------------ */
@@ -170,24 +171,27 @@ export async function adminLogin(data: AdminLoginPayload): Promise<{ success: bo
 /**
  * Create a new event.
  *
- * When the backend is available this sends a multipart/form-data request
- * so the image File can be uploaded alongside the text fields.
- * During mock mode the image file is turned into a local object-URL.
+ * Supports both:
+ * 1. Uploading a local File (via multipart FormData).
+ * 2. Providing an external Image URL (via multipart FormData or JSON).
  */
 export async function createEvent(data: CreateEventPayload): Promise<Event> {
   if (!USE_MOCK) {
-    // Build FormData – do NOT manually set Content-Type;
-    // the browser will add the correct multipart boundary.
+    // Build FormData – do NOT manually set Content-Type header;
+    // the browser automatically attaches the correct multipart boundary.
     const formData = new FormData()
-    formData.append('name', data.name)
-    formData.append('description', data.description)
+    formData.append('name', data.name.trim())
+    formData.append('description', data.description.trim())
     formData.append('category', data.category)
     formData.append('date', data.date)
     formData.append('time', data.time)
-    formData.append('venue', data.venue)
+    formData.append('venue', data.venue.trim())
     formData.append('capacity', String(data.capacity))
+
     if (data.imageFile) {
       formData.append('image', data.imageFile)
+    } else if (data.image && data.image.trim()) {
+      formData.append('image', data.image.trim())
     }
 
     const response = await fetch(`${API_BASE_URL}/events`, {
@@ -199,7 +203,11 @@ export async function createEvent(data: CreateEventPayload): Promise<Event> {
       let payload: unknown = null
       const text = await response.text()
       if (text) {
-        try { payload = JSON.parse(text) as unknown } catch { payload = null }
+        try {
+          payload = JSON.parse(text) as unknown
+        } catch {
+          payload = null
+        }
       }
       const body = payload as { code?: string; message?: string } | null
       throw new ApiError(
@@ -214,8 +222,8 @@ export async function createEvent(data: CreateEventPayload): Promise<Event> {
 
   await wait(700)
 
-  // For mock mode, create a local object URL from the file if provided
-  let imageUrl: string | undefined
+  // For mock mode, create a local object URL from file or use image URL
+  let imageUrl: string | undefined = data.image?.trim() || undefined
   if (data.imageFile) {
     imageUrl = URL.createObjectURL(data.imageFile)
   }

@@ -7,6 +7,7 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import { getEvent } from '../services/api'
 import type { Event } from '../types'
 import { availableSeats, formatLongDate } from '../utils/format'
+import { DEFAULT_EVENT_IMAGE, getImageUrl } from '../utils/image'
 
 export default function EventDetails() {
   const { id } = useParams()
@@ -59,17 +60,16 @@ export default function EventDetails() {
     <article className="mx-auto max-w-3xl px-4 py-10 md:px-6">
       {/* Event image */}
       <div className="overflow-hidden rounded-xl border border-line bg-slate-100">
-        {event.image ? (
-          <img
-            src={event.image}
-            alt={event.name}
-            className="h-64 w-full object-cover md:h-80"
-          />
-        ) : (
-          <div className="flex h-64 items-center justify-center bg-brand-soft text-brand">
-            <CalendarDays className="h-12 w-12" aria-hidden="true" />
-          </div>
-        )}
+        <img
+          src={getImageUrl(event.image)}
+          alt={event.name}
+          className="h-64 w-full object-cover md:h-80"
+          onError={(e) => {
+            if (e.currentTarget.src !== DEFAULT_EVENT_IMAGE) {
+              e.currentTarget.src = DEFAULT_EVENT_IMAGE
+            }
+          }}
+        />
       </div>
 
       {/* Category & Title */}

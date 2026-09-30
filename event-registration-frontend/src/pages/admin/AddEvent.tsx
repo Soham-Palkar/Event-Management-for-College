@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import type { FormEvent } from 'react'
+import type { FormEvent, ChangeEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { Image as ImageIcon, Upload, X } from 'lucide-react'
 import Button from '../../components/Button'
 import ErrorMessage from '../../components/ErrorMessage'
 import Input from '../../components/Input'
@@ -26,10 +27,34 @@ export default function AddEvent() {
   const [venue, setVenue] = useState('')
   const [capacity, setCapacity] = useState('')
   const [category, setCategory] = useState('Technical')
+  
+  // Image mode: 'url' | 'file'
+  const [imageMode, setImageMode] = useState<'url' | 'file'>('url')
   const [image, setImage] = useState('')
+  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [filePreview, setFilePreview] = useState<string>('')
+  
   const [errors, setErrors] = useState<FieldErrors>({})
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState(false)
+
+  function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0]
+    if (file) {
+      setImageFile(file)
+      setFilePreview(URL.createObjectURL(file))
+      setImage('')
+    }
+  }
+
+  function clearImage() {
+    setImage('')
+    setImageFile(null)
+    if (filePreview) {
+      URL.revokeObjectURL(filePreview)
+      setFilePreview('')
+    }
+  }
 
   function validate(): FieldErrors {
     const next: FieldErrors = {}
@@ -65,7 +90,8 @@ export default function AddEvent() {
         venue,
         capacity: Number(capacity),
         category,
-        image,
+        image: imageMode === 'url' && image.trim() ? image.trim() : undefined,
+        imageFile: imageMode === 'file' && imageFile ? imageFile : undefined,
       })
       navigate('/admin/events')
     } catch {
@@ -74,6 +100,8 @@ export default function AddEvent() {
       setSubmitting(false)
     }
   }
+
+  const activePreview = imageMode === 'url' ? image : filePreview
 
   return (
     <div className="max-w-2xl">
@@ -164,25 +192,74 @@ export default function AddEvent() {
         </fieldset>
 
         <fieldset className="space-y-4 rounded-xl border border-line bg-white p-5">
-          <legend className="px-1 text-sm font-semibold text-ink">Event image</legend>
-          <Input
-            label="Image URL"
-            type="url"
-            value={image}
-            onChange={(event) => setImage(event.target.value)}
-            hint="Enter an image URL or leave blank for default image."
-            disabled={submitting}
-          />
-          {image ? (
-            <div className="mt-2">
-              <p className="mb-1 text-xs font-medium text-muted">Preview:</p>
-              <div className="relative h-40 w-full overflow-hidden rounded-lg border border-line bg-slate-100">
+          <legend className="px-1 text-sm font-semibold text-ink">Event banner image</legend>
+          
+          <div className="flex gap-4 border-b border-line pb-3">
+            <button
+              type="button"
+              onClick={() => { setImageMode('url'); clearImage() }}
+              className={`flex items-center gap-1.5 text-sm font-medium pb-1 border-b-2 transition-colors ${
+                imageMode === 'url' ? 'border-brand text-brand' : 'border-transparent text-muted hover:text-ink'
+              }`}
+            >
+              <ImageIcon className="h-4 w-4" />
+              Image URL
+            </button>
+            <button
+              type="button"
+              onClick={() => { setImageMode('file'); clearImage() }}
+              className={`flex items-center gap-1.5 text-sm font-medium pb-1 border-b-2 transition-colors ${
+                imageMode === 'file' ? 'border-brand text-brand' : 'border-transparent text-muted hover:text-ink'
+              }`}
+            >
+              <Upload className="h-4 w-4" />
+              Upload Image File
+            </button>
+          </div>
+
+          {imageMode === 'url' ? (
+            <Input
+              label="Image URL"
+              type="url"
+              value={image}
+              onChange={(event) => setImage(event.target.value)}
+              placeholder="https://example.com/image.jpg"
+              hint="Enter an external public image URL."
+              disabled={submitting}
+            />
+          ) : (
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-ink">
+                Select Image File (JPG, PNG, WebP, GIF)
+              </label>
+              <input
+                type="file"
+                accept="image/png, image/jpeg, image/jpg, image/webp, image/gif"
+                onChange={handleFileChange}
+                disabled={submitting}
+                className="w-full text-sm text-muted file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-brand-soft file:text-brand hover:file:bg-blue-100 cursor-pointer"
+              />
+            </div>
+          )}
+
+          {activePreview ? (
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-1.5">
+                <p className="text-xs font-medium text-muted">Image Preview:</p>
+                <button
+                  type="button"
+                  onClick={clearImage}
+                  className="flex items-center gap-1 text-xs text-danger hover:underline"
+                >
+                  <X className="h-3.5 w-3.5" /> Clear image
+                </button>
+              </div>
+              <div className="relative h-44 w-full overflow-hidden rounded-lg border border-line bg-slate-100">
                 <img
-                  src={image}
+                  src={activePreview}
                   alt="Event preview"
                   className="h-full w-full object-cover"
                   onError={(e) => {
-                    // fallback if invalid url
                     ;(e.currentTarget as HTMLElement).style.display = 'none'
                   }}
                 />
