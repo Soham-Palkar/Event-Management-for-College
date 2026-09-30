@@ -70,4 +70,4 @@ The REST API will be accessible at: `http://localhost:5000/api`
 - **Password**: `EventHub@2026`
 *(Configurable via `.env`)*
 
-CI/CD pipeline configured with GitHub webhook.
+- **CI/CD pipeline**: Configured with GitHub Actions for automated testing and deployment.
