@@ -57,7 +57,7 @@ class Config:
     SMTP_PASSWORD = os.environ.get('SMTP_PASSWORD', '')
     MAIL_DEFAULT_SENDER = (
         os.environ.get('SMTP_FROM_EMAIL')
-        or os.environ.get('MAIL_DEFAULT_SENDER', 'EventHub College <no-reply@eventhub.college.edu>')
+        or os.environ.get('MAIL_DEFAULT_SENDER', 'EventHub <onboarding@resend.dev>')
     )
 
     # Testing flag
