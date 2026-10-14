@@ -129,3 +129,48 @@ INSERT INTO registrations (event_id, name, email, student_id, registered_at) VAL
 (1, 'Soham Palkar', 'soham@gmail.com', '2023CS001', '2026-09-20T10:15:00Z'),
 (1, 'Alex Johnson', 'alex.j@example.com', '2023CS014', '2026-09-21T11:00:00Z');
 ```
+
+---
+
+## 6. PostgreSQL / Neon Specification
+
+When deployed to production or when `DATABASE_URL` is set, EventHub automatically operates against **Neon PostgreSQL** using `psycopg` (v3).
+
+### DDL (`database/schema_postgres.sql`)
+
+```sql
+-- PostgreSQL / Neon Schema for EventHub
+
+CREATE TABLE IF NOT EXISTS events (
+    id SERIAL PRIMARY KEY,
+    event_name TEXT NOT NULL,
+    description TEXT NOT NULL,
+    date TEXT NOT NULL,
+    time TEXT NOT NULL,
+    venue TEXT NOT NULL,
+    capacity INTEGER NOT NULL CHECK(capacity > 0),
+    category TEXT NOT NULL DEFAULT 'Technical',
+    image TEXT,
+    created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP::text
+);
+
+CREATE TABLE IF NOT EXISTS registrations (
+    id SERIAL PRIMARY KEY,
+    event_id INTEGER NOT NULL REFERENCES events(id) ON DELETE CASCADE,
+    name TEXT NOT NULL,
+    email TEXT NOT NULL,
+    student_id TEXT NOT NULL,
+    registered_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP::text,
+    CONSTRAINT uq_event_email UNIQUE(event_id, email)
+);
+
+CREATE INDEX IF NOT EXISTS idx_registrations_event_id ON registrations(event_id);
+CREATE INDEX IF NOT EXISTS idx_registrations_email ON registrations(email);
+CREATE INDEX IF NOT EXISTS idx_events_date ON events(date);
+```
+
+### PostgreSQL Compatibility Architecture
+- **Parameterization**: Standard `?` parameterized queries are safely converted to `%s` placeholders outside of literal strings.
+- **Auto-Increment**: PostgreSQL `SERIAL PRIMARY KEY` is used; `INSERT ... RETURNING id` automatically populates `cursor.lastrowid` so existing API handlers function without modification.
+- **Dual-Database Support**: Development and testing preserve local SQLite; production uses Neon PostgreSQL via `DATABASE_URL`.
+

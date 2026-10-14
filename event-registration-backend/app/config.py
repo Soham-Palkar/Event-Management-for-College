@@ -5,8 +5,15 @@ from dotenv import load_dotenv
 # Base directory of the backend project (event-registration-backend/)
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# Load .env file from the backend root
-load_dotenv(BASE_DIR / '.env')
+# Load environment files (backend .env.local, backend .env, and root fallbacks)
+for env_path in [
+    BASE_DIR / '.env.local',
+    BASE_DIR / '.env',
+    BASE_DIR.parent / '.env.local',
+    BASE_DIR.parent / '.env',
+]:
+    if env_path.is_file():
+        load_dotenv(env_path)
 
 
 def resolve_path(env_val: str, default_relative: str) -> str:
@@ -17,9 +24,18 @@ def resolve_path(env_val: str, default_relative: str) -> str:
     return str((BASE_DIR / val).resolve())
 
 
+def get_normalized_database_url() -> str:
+    """Return sanitized and normalized DATABASE_URL (converts postgres:// to postgresql://)."""
+    raw_url = os.environ.get('DATABASE_URL', '').strip()
+    if raw_url.startswith('postgres://'):
+        return raw_url.replace('postgres://', 'postgresql://', 1)
+    return raw_url
+
+
 class Config:
     """Base configuration."""
     SECRET_KEY = os.environ.get('SECRET_KEY', 'eventhub-default-secret-key-2026')
+    DATABASE_URL = get_normalized_database_url()
     DATABASE_PATH = resolve_path(os.environ.get('DATABASE_PATH', ''), 'database/database.db')
     UPLOAD_FOLDER = resolve_path(os.environ.get('UPLOAD_FOLDER', ''), 'uploads/events')
     MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 16 * 1024 * 1024))  # 16 MB max
@@ -47,6 +63,8 @@ class Config:
 class TestingConfig(Config):
     """Testing configuration."""
     TESTING = True
+    DATABASE_URL = ''  # Preserves SQLite for unit tests
     DATABASE_PATH = str((BASE_DIR / 'database' / 'test_database.db').resolve())
     UPLOAD_FOLDER = str((BASE_DIR / 'tests' / 'test_uploads').resolve())
     SECRET_KEY = 'test-secret-key'
+
