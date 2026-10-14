@@ -45,6 +45,10 @@ class Config:
     ADMIN_ID = os.environ.get('ADMIN_ID', 'ADMIN001')
     ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'EventHub@2026')
 
+
+    # Resend Email API
+    RESEND_API_KEY = os.environ.get('RESEND_API_KEY', '')
+
     # SMTP Configuration (Supports SMTP_HOST or SMTP_SERVER, SMTP_FROM_EMAIL or MAIL_DEFAULT_SENDER)
     SMTP_SERVER = os.environ.get('SMTP_HOST') or os.environ.get('SMTP_SERVER', 'smtp.gmail.com')
     SMTP_PORT = int(os.environ.get('SMTP_PORT', 587))
