@@ -1,57 +1,55 @@
+
 import logging
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import resend
 from flask import current_app
+from markupsafe import escape
 
 logger = logging.getLogger(__name__)
 
 
 def send_registration_confirmation(registration, event):
     """
-    Send an email confirmation to the student after successful registration.
-    
-    :param registration: dict or Row with 'name', 'email', 'student_id', 'registered_at'
-    :param event: dict or Row with 'event_name'/'name', 'date', 'time', 'venue'
-    :return: bool indicating whether email sending succeeded or was bypassed in dev/test
-    """
-    smtp_server = current_app.config.get('SMTP_SERVER')
-    smtp_port = current_app.config.get('SMTP_PORT', 587)
-    smtp_username = current_app.config.get('SMTP_USERNAME', '').strip()
-    smtp_password = current_app.config.get('SMTP_PASSWORD', '').strip()
-    smtp_use_tls = current_app.config.get('SMTP_USE_TLS', True)
-    sender = current_app.config.get('MAIL_DEFAULT_SENDER', 'EventHub College <no-reply@eventhub.college.edu>')
+    Send an event registration confirmation using the Resend API.
 
-    recipient_email = registration.get('email', '').strip().lower()
-    student_name = registration.get('name', 'Student')
-    event_name = event.get('name') or event.get('event_name', 'College Event')
-    event_date = event.get('date', '')
-    event_time = event.get('time', '')
-    event_venue = event.get('venue', '')
+    Returns True if the email is accepted by Resend or bypassed in test mode.
+    Returns False if sending fails. Registration itself should remain successful.
+    """
+
+    recipient_email = (
+        registration.get("email") or ""
+    ).strip().lower()
+
+    student_name = registration.get("name") or "Student"
+    event_name = event.get("name") or event.get("event_name") or "College Event"
+    event_date = event.get("date") or "To be announced"
+    event_time = event.get("time") or "To be announced"
+    event_venue = event.get("venue") or "To be announced"
+    student_id = registration.get("student_id") or "N/A"
 
     if not recipient_email:
-        print("[EMAIL] Error: No recipient email provided.")
         logger.error("[EMAIL] No recipient email provided.")
         return False
 
-    # Check if SMTP is configured or in test mode
-    if not smtp_username or not smtp_password or current_app.config.get('TESTING'):
-        msg_dev = (
-            f"[EMAIL MOCK/DEV] Confirmation email queued for {recipient_email} "
-            f"for event '{event_name}' (Date: {event_date}, Time: {event_time}, Venue: {event_venue}). "
-            f"(Set SMTP_USERNAME and SMTP_PASSWORD in .env for live delivery)"
-        )
-        print(msg_dev)
-        logger.info(msg_dev)
+    # Do not send real emails during tests.
+    if current_app.config.get("TESTING"):
+        logger.info("[EMAIL MOCK/TEST] Confirmation email skipped.")
         return True
 
-    # Construct MIME message
-    msg = MIMEMultipart('alternative')
-    msg['Subject'] = f"Registration Confirmed: {event_name} — EventHub"
-    msg['From'] = sender
-    msg['To'] = recipient_email
+    api_key = (
+        current_app.config.get("RESEND_API_KEY")
+        or ""
+    ).strip()
 
-    # Plain text version
+    sender = (
+        current_app.config.get("MAIL_DEFAULT_SENDER")
+        or "EventHub <onboarding@resend.dev>"
+    ).strip()
+
+    if not api_key:
+        logger.error("[EMAIL] RESEND_API_KEY is not configured.")
+        return False
+
+    # Plain-text email
     text_content = f"""Hello {student_name},
 
 Your registration for "{event_name}" has been successfully confirmed!
@@ -61,7 +59,7 @@ Event Details:
 - Date: {event_date}
 - Time: {event_time}
 - Venue: {event_venue}
-- Student ID: {registration.get('student_id', 'N/A')}
+- Student ID: {student_id}
 
 We look forward to seeing you at the event.
 
@@ -70,72 +68,154 @@ EventHub Team
 College Event Management
 """
 
-    # HTML version
+    # Escape dynamic values before inserting them into HTML.
+    safe_name = escape(str(student_name))
+    safe_event = escape(str(event_name))
+    safe_date = escape(str(event_date))
+    safe_time = escape(str(event_time))
+    safe_venue = escape(str(event_venue))
+    safe_student_id = escape(str(student_id))
+
+    # HTML confirmation email
     html_content = f"""<!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8">
   <style>
-    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b; background-color: #f8fafc; margin: 0; padding: 24px; }}
-    .card {{ max-width: 560px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 32px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }}
-    .header {{ border-bottom: 2px solid #2563eb; padding-bottom: 16px; margin-bottom: 24px; }}
-    .title {{ font-size: 22px; font-weight: 700; color: #2563eb; margin: 0; }}
-    .badge {{ display: inline-block; background-color: #ecfdf5; color: #059669; font-weight: 600; font-size: 13px; padding: 4px 12px; border-radius: 9999px; margin-top: 8px; }}
-    .detail-row {{ margin: 12px 0; font-size: 14px; }}
-    .detail-label {{ font-weight: 600; color: #64748b; display: inline-block; width: 100px; }}
-    .detail-value {{ color: #0f172a; font-weight: 500; }}
-    .footer {{ margin-top: 32px; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }}
+    body {{
+      font-family: Arial, Helvetica, sans-serif;
+      line-height: 1.6;
+      color: #1e293b;
+      background-color: #f8fafc;
+      margin: 0;
+      padding: 24px;
+    }}
+    .card {{
+      max-width: 560px;
+      margin: 0 auto;
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 12px;
+      padding: 32px;
+    }}
+    .header {{
+      border-bottom: 2px solid #2563eb;
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+    }}
+    .title {{
+      font-size: 22px;
+      font-weight: 700;
+      color: #2563eb;
+      margin: 0;
+    }}
+    .badge {{
+      display: inline-block;
+      background: #ecfdf5;
+      color: #059669;
+      font-weight: 600;
+      font-size: 13px;
+      padding: 4px 12px;
+      border-radius: 9999px;
+      margin-top: 8px;
+    }}
+    .detail-row {{
+      margin: 12px 0;
+      font-size: 14px;
+    }}
+    .detail-label {{
+      font-weight: 600;
+      color: #64748b;
+      display: inline-block;
+      width: 100px;
+    }}
+    .detail-value {{
+      color: #0f172a;
+      font-weight: 500;
+    }}
+    .footer {{
+      margin-top: 32px;
+      padding-top: 16px;
+      border-top: 1px solid #e2e8f0;
+      font-size: 12px;
+      color: #64748b;
+      text-align: center;
+    }}
   </style>
 </head>
 <body>
   <div class="card">
     <div class="header">
       <h1 class="title">EventHub Registration Confirmed</h1>
-      <span class="badge">✓ Confirmed</span>
-    </div>
-    <p>Hello <strong>{student_name}</strong>,</p>
-    <p>You have successfully registered for <strong>{event_name}</strong>.</p>
-    
-    <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 20px 0;">
-      <div class="detail-row"><span class="detail-label">Event:</span> <span class="detail-value">{event_name}</span></div>
-      <div class="detail-row"><span class="detail-label">Date:</span> <span class="detail-value">{event_date}</span></div>
-      <div class="detail-row"><span class="detail-label">Time:</span> <span class="detail-value">{event_time}</span></div>
-      <div class="detail-row"><span class="detail-label">Venue:</span> <span class="detail-value">{event_venue}</span></div>
-      <div class="detail-row"><span class="detail-label">Student ID:</span> <span class="detail-value">{registration.get('student_id', 'N/A')}</span></div>
+      <span class="badge">&#10003; Confirmed</span>
     </div>
 
-    <p>Please present your student ID at the entrance on the day of the event.</p>
+    <p>Hello <strong>{safe_name}</strong>,</p>
+    <p>You have successfully registered for
+       <strong>{safe_event}</strong>.</p>
+
+    <div style="background:#f8fafc;border:1px solid #e2e8f0;
+                border-radius:8px;padding:16px;margin:20px 0;">
+      <div class="detail-row">
+        <span class="detail-label">Event:</span>
+        <span class="detail-value">{safe_event}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Date:</span>
+        <span class="detail-value">{safe_date}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Time:</span>
+        <span class="detail-value">{safe_time}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Venue:</span>
+        <span class="detail-value">{safe_venue}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">Student ID:</span>
+        <span class="detail-value">{safe_student_id}</span>
+      </div>
+    </div>
+
+    <p>Please present your student ID at the entrance on the event day.</p>
 
     <div class="footer">
       Sent by EventHub — College Event Registration System.<br>
-      This is an automated notification, please do not reply directly.
+      This is an automated notification; please do not reply directly.
     </div>
   </div>
 </body>
 </html>"""
 
-    msg.attach(MIMEText(text_content, 'plain'))
-    msg.attach(MIMEText(html_content, 'html'))
-
     try:
-        print(f"[EMAIL] Sending confirmation email to {recipient_email}")
-        if smtp_port == 465:
-            server = smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=10)
-        else:
-            server = smtplib.SMTP(smtp_server, smtp_port, timeout=10)
-            if smtp_use_tls:
-                server.starttls()
-                
-        print(f"[EMAIL] SMTP connection established")
-        server.login(smtp_username, smtp_password)
-        server.send_message(msg)
-        server.quit()
-        
-        print(f"[EMAIL] Confirmation email sent successfully to {recipient_email}")
-        logger.info(f"[EMAIL] Confirmation email sent successfully to {recipient_email}")
+        resend.api_key = api_key
+
+        logger.info("[EMAIL] Sending confirmation email through Resend.")
+
+        response = resend.Emails.send({
+            "from": sender,
+            "to": [recipient_email],
+            "subject": f"Registration Confirmed: {event_name} — EventHub",
+            "text": text_content,
+            "html": html_content,
+        })
+
+        # Resend normally returns an object containing the email ID.
+        response_id = (
+            response.get("id")
+            if isinstance(response, dict)
+            else getattr(response, "id", None)
+        )
+
+        if not response_id:
+            logger.error("[EMAIL] Resend returned no email ID.")
+            return False
+
+        logger.info("[EMAIL] Email accepted by Resend. ID: %s", response_id)
         return True
-    except Exception as exc:
-        print(f"[EMAIL] Failed to send confirmation email to {recipient_email}: {exc}")
-        logger.error(f"[EMAIL] Failed to send confirmation email to {recipient_email}: {exc}")
-        # Return False to log failure without failing registration HTTP response
+
+    except Exception:
+        # Avoid logging secrets or full request details.
+        logger.exception("[EMAIL] Resend request failed.")
         return False
